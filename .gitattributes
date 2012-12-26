@@ -1,0 +1,9 @@
+text=auto
+
+*.c text
+*.h text
+*.txt text
+*.sh eol=lf
+*.o binary
+Makefile text
+README text
