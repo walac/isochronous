@@ -83,7 +83,7 @@ get_packet_length(libusb_device *dev, unsigned char ep)
 static int
 get_packet_count(size_t length, int packet_size)
 {
-    return (length / packet_size) + (length % packet_size != 0);
+    return length ? (length / packet_size) + (length % packet_size != 0) : 0;
 }
 
 static libusb_device_handle *
@@ -128,6 +128,15 @@ transfer_cb(struct libusb_transfer *transfer)
 }
 
 static void
+set_packet_lengths(struct libusb_transfer *transfer, size_t n, size_t len)
+{
+    libusb_set_iso_packet_lengths(transfer, len);
+    const size_t r = n % len;
+    if (r)
+        transfer->iso_packet_desc[transfer->num_iso_packets - 1].length = r;
+}
+
+static void
 write_data(libusb_device_handle *handle, size_t n)
 {
     libusb_device *dev = libusb_get_device(handle);
@@ -157,7 +166,7 @@ write_data(libusb_device_handle *handle, size_t n)
         &completed,
         10000);
 
-    libusb_set_iso_packet_lengths(transfer, packet_length);
+    set_packet_lengths(transfer, n, packet_length);
     LIBUSB_CHECK(libusb_submit_transfer(transfer));
 
     while (!completed)
@@ -200,7 +209,7 @@ read_data(libusb_device_handle *handle, size_t n)
         &completed,
         10000);
 
-    libusb_set_iso_packet_lengths(transfer, packet_length);
+    set_packet_lengths(transfer, n, packet_length);
     LIBUSB_CHECK(libusb_submit_transfer(transfer));
 
     while (!completed)
