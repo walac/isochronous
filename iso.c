@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <unistd.h>
 
 #define LIBUSB_CHECK(expr) libusb_check(#expr, expr, __LINE__, __FILE__)
 
@@ -131,7 +132,12 @@ write_data(libusb_device_handle *handle, size_t n)
 {
     libusb_device *dev = libusb_get_device(handle);
     assert(dev);
+
     const int packet_length = get_packet_length(dev, EPOUT); 
+
+    if (!n)
+        n = packet_length;
+
     const int packet_count = get_packet_count(n, packet_length);
     int completed = 0;
 
@@ -166,7 +172,15 @@ read_data(libusb_device_handle *handle, size_t n)
 {
     libusb_device *dev = libusb_get_device(handle);
     assert(dev);
+
     const int packet_length = get_packet_length(dev, EPIN); 
+
+    /*
+     * Transfer one packet is n is zero
+     */
+    if (!n)
+        n = packet_length;
+
     const int packet_count = get_packet_count(n, packet_length);
     int completed = 0;
 
@@ -199,8 +213,20 @@ read_data(libusb_device_handle *handle, size_t n)
 int
 main(int argc, char **argv)
 {
-    (void) argc;
-    (void) argv;
+    const char optstr[] = "n:";
+    size_t n = 0;
+    int opt;
+
+    while ((opt = getopt(argc, argv, optstr)) != -1)
+        switch (opt)
+        {
+            case 'n':
+                n = atoi(optarg);
+                break;
+
+            default:
+                exit(EXIT_FAILURE);
+        }
 
     LIBUSB_CHECK(libusb_init(NULL));
     atexit(onexit);
@@ -208,8 +234,8 @@ main(int argc, char **argv)
     libusb_device_handle *dev = setup_bm_device();
     assert(dev);
 
-    write_data(dev, 128);
-    read_data(dev, 128);
+    write_data(dev, n);
+    read_data(dev, n);
     close_device(dev);
 }
 
