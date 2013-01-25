@@ -185,7 +185,7 @@ read_data(libusb_device_handle *handle, size_t n)
     const int packet_length = get_packet_length(dev, EPIN); 
 
     /*
-     * Transfer one packet is n is zero
+     * Transfer one packet if n is zero
      */
     if (!n)
         n = packet_length;
