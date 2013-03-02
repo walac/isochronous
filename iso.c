@@ -20,7 +20,10 @@ libusb_check(const char *expr, int ec, size_t line, const char *filepath)
         char fn[expr_size];
 
         memcpy(fn, expr, expr_size * sizeof(char));
-        *strchrnul(fn, '(') = '\0';
+        char *p = strchr(fn, '(');
+
+        if (p)
+            *p = '\0';
 
         const size_t filepath_size = strlen(filepath) + 1;
         char file[filepath_size];
