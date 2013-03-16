@@ -4,6 +4,7 @@
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
+#include <libgen.h>
 
 #define LIBUSB_CHECK(expr) libusb_check(#expr, expr, __LINE__, __FILE__)
 
