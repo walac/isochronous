@@ -10,8 +10,8 @@
 
 #define IDVENDOR 0x04d8
 #define IDPRODUCT 0xfa2e
-#define EPOUT 0x01
-#define EPIN 0x81
+#define EPOUT 0x03
+#define EPIN 0x83
 
 static int
 libusb_check(const char *expr, int ec, size_t line, const char *filepath)
