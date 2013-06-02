@@ -146,7 +146,7 @@ write_data(libusb_device_handle *handle, size_t n)
     libusb_device *dev = libusb_get_device(handle);
     assert(dev);
 
-    const int packet_length = get_packet_length(dev, EPOUT); 
+    const int packet_length = get_packet_length(dev, EPOUT);
 
     if (!n)
         n = packet_length;
@@ -186,7 +186,7 @@ read_data(libusb_device_handle *handle, size_t n)
     libusb_device *dev = libusb_get_device(handle);
     assert(dev);
 
-    const int packet_length = get_packet_length(dev, EPIN); 
+    const int packet_length = get_packet_length(dev, EPIN);
 
     /*
      * Transfer one packet if n is zero
