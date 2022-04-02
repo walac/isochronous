@@ -123,11 +123,11 @@ transfer_cb(struct libusb_transfer *transfer)
         struct libusb_iso_packet_descriptor *ipd = transfer->iso_packet_desc + i;
 
         if (LIBUSB_TRANSFER_COMPLETED == ipd->status) {
-            printf("Packet %d requested to transfer %u bytes, transfered %u bytes.\n",
-                    i, ipd->length, ipd->actual_length);
+            printf("Packet %d endpoint %02x requested transfer %u bytes, transferred %u bytes.\n",
+                    i, transfer->endpoint, ipd->length, ipd->actual_length);
         } else {
-            fprintf(stderr, "Packet %d failed to transfer: status = %d.\n",
-                    i, (int) ipd->status);
+            fprintf(stderr, "Packet %d on endpoint %02x failed to transfer: status = %d.\n",
+                    i, transfer->endpoint, (int) ipd->status);
         }
     }
 
