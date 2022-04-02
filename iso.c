@@ -10,6 +10,9 @@
 
 #define IDVENDOR 0x04d8
 #define IDPRODUCT 0xfa2e
+#define IFACE 0
+#define NUM_ALTS 3
+#define ALTS 2
 #define EPOUT 0x03
 #define EPIN 0x83
 
@@ -66,9 +69,9 @@ get_packet_length(libusb_device *dev, unsigned char ep)
 
     LIBUSB_CHECK(libusb_get_active_config_descriptor(dev, &config));
 
-    assert(3 == config->interface[0].num_altsetting);
+    assert(NUM_ALTS == config->interface[IFACE].num_altsetting);
 
-    const struct libusb_interface_descriptor *intf = config->interface[0].altsetting + 2;
+    const struct libusb_interface_descriptor *intf = config->interface[IFACE].altsetting + ALTS;
 
     int packet_size = 0;
 
@@ -100,8 +103,8 @@ setup_bm_device(void)
         return NULL;
 
     LIBUSB_CHECK(libusb_set_configuration(handle, 1));
-    LIBUSB_CHECK(libusb_claim_interface(handle, 0));
-    LIBUSB_CHECK(libusb_set_interface_alt_setting(handle, 0, 2));
+    LIBUSB_CHECK(libusb_claim_interface(handle, IFACE));
+    LIBUSB_CHECK(libusb_set_interface_alt_setting(handle, IFACE, ALTS));
 
     return handle;
 }
@@ -109,7 +112,7 @@ setup_bm_device(void)
 static void
 close_device(libusb_device_handle *handle)
 {
-    LIBUSB_CHECK(libusb_release_interface(handle, 0));
+    LIBUSB_CHECK(libusb_release_interface(handle, IFACE));
     libusb_close(handle);
 }
 
