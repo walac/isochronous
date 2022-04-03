@@ -44,7 +44,7 @@ libusb_check(const char *expr, int ec, size_t line, const char *filepath)
 }
 
 static void
-onexit(void)
+exit_handler(void)
 {
     libusb_exit(NULL);
 }
@@ -261,7 +261,7 @@ main(int argc, char **argv)
         }
 
     LIBUSB_CHECK(libusb_init(NULL));
-    atexit(onexit);
+    atexit(exit_handler);
 
     libusb_device_handle *dev = setup_bm_device();
     assert(dev);
