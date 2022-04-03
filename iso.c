@@ -16,6 +16,8 @@
 #define EPOUT 0x03
 #define EPIN 0x83
 
+static int verbose;
+
 static int
 libusb_check(const char *expr, int ec, size_t line, const char *filepath)
 {
@@ -203,7 +205,7 @@ read_data(libusb_device_handle *handle, size_t n)
     struct libusb_transfer *transfer = libusb_alloc_transfer(packet_count);
     assert(transfer);
 
-    void *p = calloc(n, sizeof(uint8_t));
+    uint8_t *p = calloc(n, sizeof(uint8_t));
 
     libusb_fill_iso_transfer(
         transfer,
@@ -223,13 +225,23 @@ read_data(libusb_device_handle *handle, size_t n)
         libusb_handle_events_completed(NULL, NULL);
 
     libusb_free_transfer(transfer);
+
+    if (verbose) {
+        unsigned int i;
+        for (i = 0; i < n; i++) {
+            printf(" %02x", p[i]);
+            if (i % 16 == 15)
+                printf("\n");
+        }
+        printf("\n");
+    }
     free(p);
 }
 
 int
 main(int argc, char **argv)
 {
-    const char optstr[] = "n:";
+    const char optstr[] = "n:v";
     size_t n = 0;
     int opt;
 
@@ -238,6 +250,10 @@ main(int argc, char **argv)
         {
             case 'n':
                 n = atoi(optarg);
+                break;
+
+            case 'v':
+                verbose = 1;
                 break;
 
             default:
