@@ -11,7 +11,6 @@
 #define IDVENDOR 0x04d8
 #define IDPRODUCT 0xfa2e
 #define IFACE 0
-#define NUM_ALTS 3
 #define ALTS 2
 #define EPOUT 0x03
 #define EPIN 0x83
@@ -63,7 +62,7 @@ create_dummy_data(size_t size)
 }
 
 static int
-get_packet_length(libusb_device *dev, unsigned char ep)
+get_packet_length(libusb_device *dev, unsigned char ep, int iface, int alts)
 {
     assert(dev);
 
@@ -71,9 +70,9 @@ get_packet_length(libusb_device *dev, unsigned char ep)
 
     LIBUSB_CHECK(libusb_get_active_config_descriptor(dev, &config));
 
-    assert(NUM_ALTS == config->interface[IFACE].num_altsetting);
+    assert(alts < config->interface[iface].num_altsetting);
 
-    const struct libusb_interface_descriptor *intf = config->interface[IFACE].altsetting + ALTS;
+    const struct libusb_interface_descriptor *intf = config->interface[iface].altsetting + alts;
 
     int packet_size = 0;
 
@@ -96,25 +95,25 @@ get_packet_count(size_t length, int packet_size)
 }
 
 static libusb_device_handle *
-setup_bm_device(void)
+setup_bm_device(uint16_t vid, uint16_t pid, int iface, int alts)
 {
     libusb_device_handle *handle = libusb_open_device_with_vid_pid(
-                                        NULL, IDVENDOR, IDPRODUCT);
+                                        NULL, vid, pid);
 
     if (!handle)
         return NULL;
 
     LIBUSB_CHECK(libusb_set_configuration(handle, 1));
-    LIBUSB_CHECK(libusb_claim_interface(handle, IFACE));
-    LIBUSB_CHECK(libusb_set_interface_alt_setting(handle, IFACE, ALTS));
+    LIBUSB_CHECK(libusb_claim_interface(handle, iface));
+    LIBUSB_CHECK(libusb_set_interface_alt_setting(handle, iface, alts));
 
     return handle;
 }
 
 static void
-close_device(libusb_device_handle *handle)
+close_device(libusb_device_handle *handle, int iface)
 {
-    LIBUSB_CHECK(libusb_release_interface(handle, IFACE));
+    LIBUSB_CHECK(libusb_release_interface(handle, iface));
     libusb_close(handle);
 }
 
@@ -146,13 +145,8 @@ set_packet_lengths(struct libusb_transfer *transfer, size_t n, size_t len)
 }
 
 static void
-write_data(libusb_device_handle *handle, size_t n)
+write_data(libusb_device_handle *handle, int ep, int packet_length, size_t n)
 {
-    libusb_device *dev = libusb_get_device(handle);
-    assert(dev);
-
-    const int packet_length = get_packet_length(dev, EPOUT);
-
     if (!n)
         n = packet_length;
 
@@ -167,7 +161,7 @@ write_data(libusb_device_handle *handle, size_t n)
     libusb_fill_iso_transfer(
         transfer,
         handle,
-        EPOUT,
+        ep,
         p,
         n,
         packet_count,
@@ -186,13 +180,8 @@ write_data(libusb_device_handle *handle, size_t n)
 }
 
 static void
-read_data(libusb_device_handle *handle, size_t n)
+read_data(libusb_device_handle *handle, int ep, int packet_length, size_t n)
 {
-    libusb_device *dev = libusb_get_device(handle);
-    assert(dev);
-
-    const int packet_length = get_packet_length(dev, EPIN);
-
     /*
      * Transfer one packet if n is zero
      */
@@ -210,7 +199,7 @@ read_data(libusb_device_handle *handle, size_t n)
     libusb_fill_iso_transfer(
         transfer,
         handle,
-        EPIN,
+        ep,
         p,
         n,
         packet_count,
@@ -241,9 +230,16 @@ read_data(libusb_device_handle *handle, size_t n)
 int
 main(int argc, char **argv)
 {
-    const char optstr[] = "n:v";
+    const char optstr[] = "n:vd:i:a:e:u:";
     size_t n = 0;
     int opt;
+    int in_only = 0, out_only = 0;
+    uint16_t vid = IDVENDOR;
+    uint16_t pid = IDPRODUCT;
+    int iface = IFACE;
+    int alts = ALTS;
+    int ep_in = EPIN;
+    int ep_out = EPOUT;
 
     while ((opt = getopt(argc, argv, optstr)) != -1)
         switch (opt)
@@ -256,18 +252,60 @@ main(int argc, char **argv)
                 verbose = 1;
                 break;
 
+            case 'd':
+		{
+		    char *rem;
+		    vid = (uint16_t) strtoul(optarg, &rem, 16);
+		    pid = 0;
+		    if (*rem == ':')
+			    pid = (uint16_t) strtoul(++rem, NULL, 16);
+		}
+                break;
+
+            case 'i':
+		iface = strtol(optarg, NULL, 0);
+                break;
+
+            case 'a':
+		alts = strtol(optarg, NULL, 0);
+                break;
+
+            case 'e':
+		ep_in = strtol(optarg, NULL, 16) | 0x80;
+                break;
+
+            case 'u':
+		ep_out = strtol(optarg, NULL, 16);
+                break;
+
             default:
                 exit(EXIT_FAILURE);
         }
+    if (optind != argc) {
+        if (argv[optind][0] == 'i')
+            in_only = 1;
+        else if (argv[optind][0] == 'o')
+            out_only = 1;
+    }
 
     LIBUSB_CHECK(libusb_init(NULL));
     atexit(exit_handler);
 
-    libusb_device_handle *dev = setup_bm_device();
+    libusb_device_handle *devh = setup_bm_device(vid, pid, iface, alts);
+    assert(devh);
+
+    libusb_device *dev = libusb_get_device(devh);
     assert(dev);
 
-    write_data(dev, n);
-    read_data(dev, n);
-    close_device(dev);
+    if (!in_only) {
+        int packet_length_out = get_packet_length(dev, ep_out, iface, alts);
+        write_data(devh, ep_out, packet_length_out, n);
+    }
+    if (!out_only) {
+        int packet_length_in = get_packet_length(dev, ep_in, iface, alts);
+        read_data(devh, ep_in, packet_length_in, n);
+    }
+
+    close_device(devh, iface);
 }
 
